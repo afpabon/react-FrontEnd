@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { Meteor } from 'meteor/meteor';
 import { createContainer } from 'meteor/react-meteor-data';
 import { changeSidebarTab, toggleSelectedVariables } from '../actions'
 import { MachinesCollection } from '../collections'

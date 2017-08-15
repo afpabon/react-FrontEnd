@@ -1,35 +1,44 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import moment from 'moment-timezone'
 import AuxChart from '../components/AuxChart'
+import { changeSelectedSnapshot } from '../actions'
 
 const getFormatedSnapshots = snapshots => {
   return snapshots? snapshots.map(s => {
     return {
       x: s.SampleDate,
-      y: s.Variables.length
+      y: s.Variables.length,
+      data: {...s}
     }
   }) : [];
 }
 
-let GlobalChart = ({snapshots}) => {
+const getSelectedVars = machines => {
+  let machine = machines.find(m=> m.selected == true);
+  return machine && machine.selectedVariables? machine.selectedVariables.length : 0;
+}
+
+let GlobalChart = ({snapshots, selectedVariables, onSnapshotClick}) => {
   let chartData = getFormatedSnapshots(snapshots);
   //TO DO: Buscar cómo cambiar idioma de meses en gŕafica. En librería hay otros idiomas, 
   //¿cuál es el parámetro para cambiar el idioma?
   return (<div>
-  <AuxChart data={chartData} width={900} height={520} />
+  <AuxChart snapshotClicked={onSnapshotClick} data={chartData} width={950} height={100} selectedVars={selectedVariables}/>
   </div>)
 }
 
 const mapStateToProps = state => {
   return {
-    snapshots : state.oilSnapshots
+    snapshots : state.oilSnapshots,
+    selectedVariables : getSelectedVars(state.currentMachines)
   }
 }
 
 const mapDispatchToProps = dispatch => {
   return {
-
+    onSnapshotClick: snapshot => {
+      dispatch(changeSelectedSnapshot(snapshot));
+    }
   }
 }
 

@@ -16,7 +16,7 @@ Meteor.methods({
   getOilVariablesList(machine) {
     return [
       {
-        "Id":4401,
+        "Id":4028,
         "ParentId": "566affcf4b9e6d1330a1aa73",
         "Parent":"(0) Mix",
         "DefaultParent":true,
@@ -41,7 +41,7 @@ Meteor.methods({
         "LowerLimit":null
       },
       {
-        "Id":4402,
+        "Id":4030,
         "ParentId": "566affcf4b9e6d1330a1aa73",
         "Parent":"(0) Mix",
         "DefaultParent":true,

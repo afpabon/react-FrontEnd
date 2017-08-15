@@ -1,11 +1,11 @@
 import React from 'react'
 import SearchSideBar from '../containers/SearchSideBar'
-import DrawContainer from './DrawContainer'
 import RecentMachines from '../containers/RecentMachines'
-import ChartArea from './ChartArea'
+import ChartArea from '../containers/ChartArea'
+import GlobalChart from '../containers/GlobalChart'
 
 const App = () => (
-  <div className="prueba">
+  <div>
     <div className="row">
       <RecentMachines />
     </div>
@@ -13,7 +13,12 @@ const App = () => (
       <SearchSideBar />
     </div>
     <div className="col-md-9">
-      <ChartArea />
+      <div className="row" height="80%">
+        <ChartArea />
+      </div>
+      <div className="row">
+        <GlobalChart />
+      </div>
     </div>
   </div>
 )

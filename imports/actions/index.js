@@ -37,6 +37,13 @@ export const getSnapshots = (input) => {
   }
 }
 
+export const changeSelectedSnapshot = (input) => {
+  return {
+    type: 'CHANGE_SELECTED_SNAPSHOT',
+    snapshot: input
+  }
+}
+
 export const setMachine = (machine) => {
   return {
     type: 'ADD_MACHINE',
