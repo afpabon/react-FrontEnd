@@ -1,10 +1,10 @@
 import React, { Component } from 'react'
 import d3 from 'd3';
-import moment from 'moment-timezone'
 import PropTypes from 'prop-types'
-import { Meteor } from 'meteor/meteor'
+import { languageHelper,  TAPi18n, variables, timezonesHelper} from '../ARTIMO_FUNCIONES'
 
 const chartHelpers = {
+  areaName: 'focus',
   // Main x-Axis with times and dates
   xAxis: d3.axisBottom(),
   // auxiliary x-Axis time scale
@@ -18,29 +18,131 @@ const chartHelpers = {
   },
   axisXOffset: 50,
   yAxes : [],
-  color: d3.schemeCategory10,
+  color: index => d3.schemeCategory10[index%10],
 }
 
 const charts = {
   resetChart: (node, height, width) => {
-    d3.select('.focus').remove();
-    d3.select('.chart').remove();
+    d3.select('.' + chartHelpers.areaName).remove();
+    d3.select('.chart-' + chartHelpers.areaName).remove();
     d3.select(node).append("g")
-      .attr("class", "focus")
+      .attr("class", chartHelpers.areaName)
       .attr("transform", "translate(0,10)");
     
   },
-  drawChart: (node, lineData, variables, height) => {
+  createXAxis: (data, leftMargin, height, width) => {
+    let maxX = d3.max(data, v => v.x);
+    let minX = d3.min(data, v => v.x);
+
+    chartHelpers.x
+      .range([leftMargin, width+leftMargin])
+      .domain([minX, maxX])
+    let tickWidth = (maxX-minX)/11;
+    let ticks = [];
+    for(let iTick=0; iTick<11;iTick++) {
+      let date = new Date(tickWidth*iTick + minX.getTime());
+      ticks.push(date);
+    }
+    chartHelpers.xAxis
+      .scale(chartHelpers.x)
+      .tickValues(ticks)
+      .tickFormat(d => timezonesHelper.getShortTimeString(d));
+    d3.select('.' + chartHelpers.areaName).append('g')
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(chartHelpers.xAxis);
+  },
+  createYAxis: (container, index, variable, height, width, varlength) => {
+    let xOffset = height / 2;
+    let offset = chartHelpers.axisXOffset * (varlength-index) + chartHelpers.margins.left;
+    let axis = container.append("g")
+      .attr("class", "y axis")
+      .style("stroke", chartHelpers.color(index))
+      .call(chartHelpers.yAxes[index].yAxis)
+      .attr("transform", "translate(" + offset + ",0)");
+    axis.selectAll("text")
+      .attr('dx',-6);
+    axis.append("text")
+      .attr("font-family", "'Helvetica Neue', Helvetica, Arial, sans-serif")
+      .attr("font-size", "12.5px")
+      // .attr("font-weight", "bold")
+      .attr("transform", "rotate(-90)")
+      .attr("fill", chartHelpers.color(index))
+      .attr("dy", "-38px")
+      .attr("dx", "-" + xOffset + "px")
+      .style("text-anchor", "middle")
+      .style("letter-spacing", "1px")
+      .text(variables.getItemDescription(variable.Descriptions) + ' (' + variable.MeasureUnit + ')') //TO DO: AJUSTAR IDIOMA (getDescription())
+    if(index==0){
+      let yAxisGrid = chartHelpers.yAxes[index].yAxis
+        .tickSize(-width, 0)
+        .tickFormat("")
+      container.append("g")
+        .classed('y', true)
+        .classed('grid', true)
+        .style("stroke", chartHelpers.color(index))
+        .attr('stroke-dasharray','6,2')
+        .attr("opacity", "0.2")
+        .call(yAxisGrid)
+        .attr("transform", "translate(" + offset + ",0)");
+    }
+  },
+  createLimits: (container, index, variable, height, width, x, y) => {
+    if (variable.LowerLimit && variable.LowerLimit > y[0] && variable.LowerLimit < y[1]) {
+      container.append('line')
+        .attr('x1', chartHelpers.x(x[0]))
+        .attr('y1', chartHelpers.yAxes[index].y(variable.LowerLimit))
+        .attr('x2', chartHelpers.x(x[1]))
+        .attr('y2', chartHelpers.yAxes[index].y(variable.LowerLimit))
+        .attr('stroke-width', '1')
+        .attr('stroke-dasharray','15,5')
+        .attr('stroke', chartHelpers.color(index));
+
+      container.append("text")
+        .attr("font-family", "'Helvetica Neue', Helvetica, Arial, sans-serif")
+        .attr("font-size", "11px")
+        .attr("fill", chartHelpers.color(index))
+        .attr("dy", chartHelpers.yAxes[index].y(variable.LowerLimit) + "px")
+        .attr("dx", (width/2) + "px")
+        .style("text-anchor", "middle")
+        .text(TAPi18n.__('Variables_LowerLimit')) //TO DO: Add TAPi18n
+    }
+    if (variable.UpperLimit && variable.UpperLimit > y[0] && variable.UpperLimit < y[1]) {
+      container.append('line')
+        .attr('x1', chartHelpers.x(x[0]))
+        .attr('y1', chartHelpers.yAxes[index].y(variable.UpperLimit))
+        .attr('x2', chartHelpers.x(x[1]))
+        .attr('y2', chartHelpers.yAxes[index].y(variable.UpperLimit))
+        .attr('stroke-width', '1')
+        .attr('stroke-dasharray','15,5')
+        .attr('stroke', chartHelpers.color(index));
+
+      container.append("text")
+        .attr("font-family", "'Helvetica Neue', Helvetica, Arial, sans-serif")
+        .attr("font-size", "11px")
+        .attr("fill", chartHelpers.color(index))
+        .attr("dy", chartHelpers.yAxes[index].y(variable.UpperLimit) + "px")
+        .attr("dx", (width/2) + "px")
+        .style("text-anchor", "middle")
+        .text(TAPi18n.__('Variables_UpperLimit'))
+    }
+  },
+  drawChart: (lineData, vars, height, width) => {
+    let focus = d3.select('.' + chartHelpers.areaName);
+    let limits = focus.append("g")
+      .attr("class", "limits");
+    let yAxes = focus.append("g")
+      .attr("class", "y-axes");
     let data = lineData.sort((a,b)=> a.x - b.x);
     chartHelpers.yAxes = [];
-    variables.forEach((v,i)=>{
-      if (_.some(data, (obj) => {
-        return (obj["y" + i] !== undefined && obj["y" + i] !== null);
-      })) {
+    let minX = d3.min(data, v => v.x.getTime());
+    let maxX = d3.max(data, v => v.x.getTime());
+    vars.forEach((variable,i)=>{
+      if (_.some(data, obj => obj["y" + i] !== undefined && obj["y" + i] !== null)) {
         let newAxis = new Object();
         // Build axis scale
-        let minVal = d3.min(data, v => { return v["y" + i]; });
-        let maxVal = d3.max(data, v => { return v["y" + i]; });
+        let minVal = d3.min(data, v => v["y" + i]);
+        let maxVal = d3.max(data, v => v["y" + i]);
         let minD = minVal - (maxVal-minVal) * 0.1;
         let maxD = maxVal + (maxVal-minVal) * 0.1;
         let tickMinVal = minVal;
@@ -73,115 +175,93 @@ const charts = {
         // Build new axis data line
         newAxis.line = d3.line()
           .curve(d3.curveLinear)
-          .x(function(d) { return chartHelpers.x(d.x); })
-          .y(function(d) { return chartHelpers.yAxes[d.i].y(d.y); })
+          .x(d => chartHelpers.x(d.x))
+          .y(d => chartHelpers.yAxes[d.i].y(d.y))
         // Add new axis to y-axes collection
         chartHelpers.yAxes.push(newAxis);
+        charts.createYAxis(yAxes, i, variable, height, width, vars.length);
+        charts.createLimits(limits, i, variable, height, width, [minX, maxX], [minD, maxD]);
       }
     });
-    let chartsKeys = d3.keys(data[0]).filter(function(key) {
-      return key !== "x";
-    });
-    let values = chartsKeys.map(function(name) {
+    let chartsKeys = d3.keys(data[0]).filter(key =>key !== "x");
+    let values = chartsKeys.map(name => {
       return {
         name: name,
-        values: data.filter(function(d) {
-          return d[name] != null;
-        })
-        .map(function(d) {
-          return {i: name.substring(1), x: d.x, y: +d[name], noLine: d.noLine};
-        })
+        values: data.filter(d => d[name] != null)
+        .map(d => {return {i: name.substring(1), x: d.x, y: +d[name], noLine: d.noLine}})
       };
     });
-    console.log(values);
-    var value = d3.select('.focus').selectAll(".value")
+    let value = focus.selectAll(".value")
       .data(values)
       .enter()
       .append("g")
       .attr("class", "value")
     value.append("path")
       .attr("class", "line")
-      .attr("d", function(d) {
-        return chartHelpers.yAxes[parseInt(d.name.substring(1))].line(d.values);
-      }).style("stroke", function(d) {var colorIndex = parseInt(d.name.substring(1)); return chartHelpers.color[d.name.substring(1)]; });
-    return;
-    let newId = (new Meteor.Collection.ObjectID()).valueOf();
-
-    let lowerLine = d3.line()
-      .curve(d3.curveLinear)
-      .x(d => { return chartHelpers.x(d.x)})
-      .y(d => { return chartHelpers.auxY(d.y)})
-      .defined(d => { return !d.noLine});
-    
-    d3.select('.focus').append('path')
-      .datum(lineData)
-      .attr("class", "line")
-      .attr("d", lowerLine)
       .style("fill", "none")
-      .style("stroke", d3.rgb(100, 80, 50))
-      .style("stroke-width", "1.5px")
+      .style("stroke-width", "1.1px")
+      .attr("d", d => chartHelpers.yAxes[parseInt(d.name.substring(1))].line(d.values))
+      .style("stroke", d => {let colorIndex = parseInt(d.name.substring(1)); return chartHelpers.color(d.name.substring(1)); });
+
     let div = d3.select("body").append("div")
-      .attr("class", "tooltip chart")
-      .attr("id", newId)
+      .attr("class", "tooltip chart-" + chartHelpers.areaName)
       .style("opacity", 0)
       .style("display", "none")
-      .style('max-width', "140px");
+      .style('max-width', "140px")
+      .style('background-color', "white")
+      .style("border-width", "2px")
+      .style("border-style", "solid")
+      .style("border-color", "black")
+      .style("padding", "2px");
     
-    d3.select('.focus').selectAll(".dot")
-      .data(dotData)
+    value.selectAll(".dot")
+      .data(d => d.values)
       .enter().append("circle")
-      .attr("id", (d, i) => 'index_' + i)
-      .attr("class","tooltip-dot")
+      .attr("id", d => 'axis_' + d.i + '_' + d.y)
+      .attr("class","main-tooltip-dot")
       .attr('stroke', 'black')
-      .attr('fill', d3.rgb(100, 80, 50))
-      .attr('cx', (d) => { return chartHelpers.x(d.x); })
-      .attr('cy', (d) => { return chartHelpers.auxY(d.y); })
+      .attr('fill', d => chartHelpers.color(d.i))
+      .attr("cx", d => chartHelpers.x(d.x))
+      .attr("cy", d => chartHelpers.yAxes[d.i].y(d.y))
       .attr("r", 2.5)
       .on("mouseover", (d) => {
+        let overElements = $('.main-tooltip-dot[cx="' + chartHelpers.x(d.x) + '"]');
+        let htmlText ="<label>".concat(timezonesHelper.getShortTimeString(d.x) , "</label>");
+        for (let eIndex=0; eIndex < overElements.length; eIndex++){
+          let selDot = $(overElements[eIndex]);
+          let eId = (selDot.attr('id')).split('_');
+          let ei = parseInt(eId[1]);
+          let ey = parseFloat(eId[2]);
+          let fill = selDot.attr('fill');
+          let tooltipText = '<div style="color: ' + fill + '">' + 
+            variables.getItemDescription(vars[ei].Descriptions) + ': ' + languageHelper.formatNumber(ey, 2)
+            + ' ' + vars[ei].MeasureUnit + 
+          '</div>';
+          htmlText = htmlText.concat(tooltipText);
+        }
         let maxWidth = $('body').width();
         let xOffset = d3.event.pageX;
         if (d3.event.pageX + 140 > maxWidth) {
           xOffset = maxWidth - 140;
         }
-        $('div#' + newId).show();
-        let html = d.data.Variables.map((v) => {
-          return v.VariableCode + '\n';
-        });
+        $(div.node()).show();
         div.transition()
           .duration(200)
-          .style("border-width", "2px")
-          .style("border-style", "solid")
-          .style("border-color", d3.rgb(100, 80, 50))
-          .style("opacity", 1);
-        div.html(html.join(','));
-        let yOffset = d3.event.pageY - $('.tooltip').height() - 10;
+          .style("opacity", 0.9);
+        div.html(htmlText);
+        let yOffset = d3.event.pageY - $(div.node()).height() - 10;
+        if (yOffset<0) yOffset = d3.event.pageY + 10;
 
         div.style("left", xOffset + "px")
-          .style("top", (yOffset) + "px");
+          .style("top", (yOffset - 4) + "px");
       })
       .on("mouseout", () => {
         div.transition()
         .duration(500)
         .style("opacity", 0)
-        .on('end', ()=>{
-          $('div#' + newId).hide();
-        })
+        .on('end', () => $(div.node()).hide())
       })
-  },
-  createXAxis: (node, data, height) => {
-    let formatDate = function (d) {
-      return moment.tz(d, 'America/Bogota').format('DD/MM/YYYY')
-    };
-    chartHelpers.xAxis
-      .scale(chartHelpers.x)
-      .tickFormat(function(d) {
-        return formatDate(d);
-      });
-    d3.select('.focus').append('g')
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(chartHelpers.xAxis);
-  },
+  }
 }
 
 class Chart extends Component {
@@ -196,25 +276,21 @@ class Chart extends Component {
     this.createChart()
   }
   createChart() {
+    if (this.props.areaName) chartHelpers.areaName = this.props.areaName;
     let finalData = this.props.data;
     let height = this.props.height;
     let width = this.props.width;
     let auxHeight = height - chartHelpers.margins.top*3;
-    let selectedVars = this.props.selectedVars && this.props.selectedVars.count? this.props.selectedVars.count : 0;
-    let leftMargin = chartHelpers.axisXOffset*selectedVars + chartHelpers.margins.left;
-
-    let maxX = d3.max(finalData, v => {return v.x});
-    let minX = d3.min(finalData, v => {return v.x});
-    
-    chartHelpers.x
-      .range([leftMargin, width-chartHelpers.margins.right])
-      .domain([minX, maxX])
 
     const node = this.node;
     charts.resetChart(node, this.props.height, this.props.width);
     if (finalData.length > 0) {
-      charts.createXAxis(node, finalData, auxHeight);
-      if (this.props.selectedVars.count > 0) {
+      let vars = this.props.selectedVars.variables;
+      let selectedVars = vars? vars.length : 0;
+      let leftMargin = chartHelpers.axisXOffset*selectedVars + chartHelpers.margins.left;
+      let auxWidth = width - chartHelpers.margins.right - leftMargin;
+      if (selectedVars > 0) {
+        charts.createXAxis(finalData, leftMargin, auxHeight, auxWidth);
         let finalSnapshots = [];
         finalData.forEach(d=> {
           let index = finalSnapshots.findIndex(s=>s.x.getTime() === d.x.getTime());
@@ -222,8 +298,8 @@ class Chart extends Component {
             index = finalSnapshots.length;
             finalSnapshots.push({x: d.x});
           }
-          this.props.selectedVars.variables.forEach((variableId, i)=>{
-            let exists = d.y.find(v=>v.VariableId === variableId);
+          vars.forEach((variable, i)=>{
+            let exists = d.data.Variables.find(v=>v.VariableId === variable.Id);
             if (exists && !finalSnapshots[index]['y'+i]) {
               finalSnapshots[index]['y'+i] = exists.Values[0];
             }
@@ -232,7 +308,7 @@ class Chart extends Component {
             }
           });
         });
-        charts.drawChart(node, finalSnapshots, this.props.selectedVars.variables, auxHeight);
+        charts.drawChart(finalSnapshots, vars, auxHeight, auxWidth);
       }
     }
   }
